@@ -1,0 +1,11 @@
+MONGODB_URI: mongodb://heroku_qh5rj8lb:ghjjga75hql1tlrcqo92eloe05@ds113626.mlab.com:13626/heroku_qh5rj8lb
+
+// If deployed, use the deployed database. Otherwise use the local mongoHeadlines database    
+`var MONGODB_URI = process.env.MONGODB_URI || "mongodb://localhost/mongoHeadlines";`
+
+
+
+
+    Then, just pass the MONGODB_URI variable to mongoose.connect. If you define MONGODB_URI on heroku, your production app will automatically use the remote database
+
+    You shouldn't connect to the remote database when developing locally. Your classroom's network may not function if you do (but it's also best practice to use a local databse for development).
