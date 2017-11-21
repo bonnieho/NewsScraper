@@ -12,10 +12,13 @@ var cheerio = require("cheerio");
 // Require all models
 var db = require("./models");
 
+// var Note = require("./models/Note.js");
+// var Article = require("./models/Article.js");
+
 
 var PORT = 3000;
 // If deployed, use the deployed database. Otherwise use the local mongoHeadlines database    
-var MONGODB_URI = process.env.MONGODB_URI || "mongodb://localhost/mongoHeadlines";
+var MONGODB_URI = process.env.MONGODB_URI || "mongodb://localhost/mongoVoxFeed";
 
 
 // Initializing Express
@@ -23,77 +26,64 @@ var app = express();
 
 
 
-// Configure middleware
-
+// +++++++++   Configuring the middleware  +++++++++++++++
 
 // logging requests with morgan
 app.use(logger("dev"));
 
-
 // body-parser for form submissions
 app.use(bodyParser.urlencoded({ extended: false }));
 
-
 // express.static sets the public folder as a static directory
 app.use(express.static("public"));
-
 
 // mongoose set up for JavaScript ES6 Promises
 mongoose.Promise = Promise;
 
 
-// Connecting to the Mongo DB using mongoose
-// MONGODB_URI: mongodb://heroku_qh5rj8lb:ghjjga75hql1tlrcqo92eloe05@ds113626.mlab.com:13626/heroku_qh5rj8lb
-mongoose.connect("mongodb://heroku_qh5rj8lb:ghjjga75hql1tlrcqo92eloe05@ds113626.mlab.com:13626/heroku_qh5rj8lb", {
-  // check to make sure this is needed
+// +++++ Connecting to the Mongo DB using mongoose  +++++
+
+mongoose.connect("mongodb://localhost/mongoVoxFeed", {
   useMongoClient: true
 });
 
-/* ==========  stuff that might work ================ */
+/* ==========  confirming mongo db connection ================ */
 
-var db = mongoose.connection;
+// var yep = mongoose.connection;
 
+// show any mongoose errors 
 
-// show any mongoose errors
-db.on('error', function(err) {
-  console.log('Mongoose Error: ', err);
-});
+// yep.on('error', function(err) {
+//  console.log('Mongoose Error: ', err);
+//});
 
 // once logged in to the db through mongoose, log a success message
-db.once('open', function() {
-  console.log('Mongoose connection successful.');
-});
 
-// bring in models
-var Note = require('./models/Note.js');
-var Article = require('./models/Article.js');
+// yep.once('open', function() {
+//  console.log('Mongoose connection successful.');
+//});
 
 
-// main index route
-app.get('/', function(req, res) {
-  res.send(index.html);
-});
-
-/* ==========  END stuff that might work ================ */
 
 
 
 // ==========   Routes   ==============
 
-// A GET route for scraping the echojs website
+// main index route
+app.get('/', function(req, res) {
+  return res.send(index.html);
+});
+
+// A GET route for scraping the vox.com website
 app.get('/scrape', function(req, res) {
   // First, we grab the body of the html with request
-  // axios.get("http://www.echojs.com/").then(function(response) {
-    axios.get("http://www.reuters.com/").then(function(response) {
+    axios.get("http://www.vox.com/").then(function(response) {
 
-// might work...
-    // request('http://www.reuters.com/', function(error, response, html) {
-
-    // Then, we load that into cheerio and save it to $ for a shorthand selector
+    // Then, we load that into cheerio and save it to $ for a jQuery-flavored shorthand selector
     var $ = cheerio.load(response.data);
 
-    // Now, we grab every h2 within an article tag, and do the following:
-    $('article h2').each(function(i, element) {
+    // Now, we grab every h2 within an div tag (this is how Vox has their news page set up), and do the following:
+    $('div h2').each(function(i, element) {
       // Save an empty result object
       var result = {};
 
@@ -105,15 +95,15 @@ app.get('/scrape', function(req, res) {
         .children('a')
         .attr('href');
 
-      // Create a new Article using the `result` object built from scraping
+      // Create a new Article using the 'result' object built from scraping
       db.Article
         .create(result)
         .then(function(dbArticle) {
-          // If we were able to successfully scrape and save an Article, send a message to the client
-          res.send('Scrape Complete');
+          // This message is sent if we were able to successfully scrape and SAVE an Article.
+          return res.send('Scrape Complete');
         })
         .catch(function(err) {
-          // If an error occurred, send it to the client
+          // If there's an error, send it to the client
           res.json(err);
         });
     });
@@ -130,7 +120,7 @@ app.get('/articles', function(req, res) {
       res.json(dbArticle);
     })
     .catch(function(err) {
-      // If an error occurred, send it to the client
+      // If there's an error, send it to the client
       res.json(err);
     });
 });
@@ -143,32 +133,32 @@ app.get('/articles/:id', function(req, res) {
     // ..and populate all of the notes associated with it
     .populate('note')
     .then(function(dbArticle) {
-      // If we were able to successfully find an article with the given id, send it back to the client
+      // If we were able to successfully FIND an article with the GIVEN id, send it back to the client
       res.json(dbArticle);
     })
     .catch(function(err) {
-      // If an error occurred, send it to the client
+      // If there's an error, send it to the client
       res.json(err);
     });
 });
 
-// Route for saving/updating an article's associated Note
+// Route for to SAVE or UPDATE an article's associated Note
 app.post('/articles/:id', function(req, res) {
   // Create a new note and pass the req.body to the entry
   db.Note
     .create(req.body)
     .then(function(dbNote) {
-      // If a Note was created successfully, find one article with an `_id` equal to `req.params.id`. Update the article to be associated with the new Note
+      // If a Note was created successfully, find one article with an '_id equal to 'req.params.id'. Update the article to be associated with the new Note
       // { new: true } tells the query that we want it to return the updated User -- it returns the original by default
-      // Since our mongoose query returns a promise, we can chain another `.then` which receives the result of the query
+      // Since our mongoose query returns a promise, we can chain another '.then' which receives the result of the query
       return db.Article.findOneAndUpdate({ _id: req.params.id }, { note: dbNote._id }, { new: true });
     })
     .then(function(dbArticle) {
-      // If we were able to successfully update an article, send it back to the client
+      // If we were able to successfully UPDATE an article, send it back to the client
       res.json(dbArticle);
     })
     .catch(function(err) {
-      // If an error occurred, send it to the client
+      // If there's an error, send it to the client
       res.json(err);
     });
 });
